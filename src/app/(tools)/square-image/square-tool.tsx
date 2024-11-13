@@ -15,73 +15,61 @@ function SquareToolCore(props: { fileUploaderProps: FileUploaderResult }) {
   const { imageContent, imageMetadata, handleFileUploadEvent, cancel } =
     props.fileUploaderProps;
 
-  const [finalImageContent, setFinalImageContent] = useState<string | null>(null);
+  const [backgroundColor, setBackgroundColor] = useLocalStorage<
+    "black" | "white"
+  >("squareTool_backgroundColor", "white");
 
-  const finalWidth: number = 1284;
-  const finalHeight: number = 2778
+  const [squareImageContent, setSquareImageContent] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (imageContent && imageMetadata) {
-      // Step 1: Create a 128x128 canvas and resize the image to fit this canvas
-      const resizedCanvas = document.createElement("canvas");
-      resizedCanvas.width = imageMetadata.width;
-      resizedCanvas.height = imageMetadata.height;
-      const resizedCtx = resizedCanvas.getContext("2d");
-      if (!resizedCtx) return;
+      const canvas = document.createElement("canvas");
+      const size = Math.max(imageMetadata.width, imageMetadata.height);
+      canvas.width = size;
+      canvas.height = size;
 
-      resizedCtx.fillStyle = "transparent";
-      resizedCtx.fillRect(0, 0, imageMetadata.width, imageMetadata.height);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
 
+      // Fill background
+      ctx.fillStyle = backgroundColor;
+      ctx.fillRect(0, 0, size, size);
+
+      // Load and center the image
       const img = new Image();
       img.onload = () => {
-        // Draw the image resized to 128x128 on the off-screen canvas
-        resizedCtx.drawImage(img, 0, 0, imageMetadata.width, imageMetadata.height);
-
-        // Step 2: Create the final 1284x2778 canvas
-        const finalCanvas = document.createElement("canvas");
-        finalCanvas.width = finalWidth;
-        finalCanvas.height = finalHeight;
-        const finalCtx = finalCanvas.getContext("2d");
-        if (!finalCtx) return;
-
-        // Fill background with transparency
-        finalCtx.fillStyle = "transparent";
-        finalCtx.fillRect(0, 0, finalWidth, finalHeight);
-
-        // Center the 128x128 image on the final canvas
-        const x = (finalWidth - imageMetadata.width) / 2;
-        const y = (finalHeight - imageMetadata.height) / 2;
-        finalCtx.drawImage(resizedCanvas, x, y);
-
-        // Save the final image data
-        setFinalImageContent(finalCanvas.toDataURL("image/png"));
+        const x = (size - imageMetadata.width) / 2;
+        const y = (size - imageMetadata.height) / 2;
+        ctx.drawImage(img, x, y);
+        setSquareImageContent(canvas.toDataURL("image/png"));
       };
       img.src = imageContent;
     }
-  }, [imageContent, imageMetadata]);
+  }, [imageContent, imageMetadata, backgroundColor]);
 
   const handleSaveImage = () => {
-    if (finalImageContent && imageMetadata) {
+    if (squareImageContent && imageMetadata) {
       const link = document.createElement("a");
-      link.href = finalImageContent;
+      link.href = squareImageContent;
       const originalFileName = imageMetadata.name;
       const fileNameWithoutExtension =
         originalFileName.substring(0, originalFileName.lastIndexOf(".")) ||
         originalFileName;
-      link.download = `${fileNameWithoutExtension}-1284x2778.png`;
+      link.download = `${fileNameWithoutExtension}-squared.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     }
   };
 
-
   const plausible = usePlausible();
 
   if (!imageMetadata) {
     return (
       <UploadBox
-        title="Create Splash Screen images with custom backgrounds. Fast and free."
+        title="Create square images with custom backgrounds. Fast and free."
         subtitle="Allows pasting images from clipboard"
         description="Upload Image"
         accept="image/*"
@@ -92,9 +80,9 @@ function SquareToolCore(props: { fileUploaderProps: FileUploaderResult }) {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center justify-center gap-6 p-6">
-      <div className="flex w-full flex-col items-center gap-4 rounded-xl p-6 border-2 border-red-50">
-        {finalImageContent && (
-        <img src={finalImageContent} alt="Preview" className="mb-4 drop-shadow-lg" />
+      <div className="flex w-full flex-col items-center gap-4 rounded-xl p-6">
+        {squareImageContent && (
+          <img src={squareImageContent} alt="Preview" className="mb-4" />
         )}
         <p className="text-lg font-medium text-white/80">
           {imageMetadata.name}
@@ -110,13 +98,23 @@ function SquareToolCore(props: { fileUploaderProps: FileUploaderResult }) {
         </div>
 
         <div className="flex flex-col items-center rounded-lg bg-white/5 p-3">
-          <span className="text-sm text-white/60">Splash Size</span>
+          <span className="text-sm text-white/60">Square Size</span>
           <span className="font-medium text-white">
-            {finalWidth} ×{" "}
-            {finalHeight}
+            {Math.max(imageMetadata.width, imageMetadata.height)} ×{" "}
+            {Math.max(imageMetadata.width, imageMetadata.height)}
           </span>
         </div>
       </div>
+
+      <OptionSelector
+        title="Background Color"
+        options={["white", "black"]}
+        selected={backgroundColor}
+        onChange={setBackgroundColor}
+        formatOption={(option) =>
+          option.charAt(0).toUpperCase() + option.slice(1)
+        }
+      />
 
       <div className="flex gap-3">
         <button
